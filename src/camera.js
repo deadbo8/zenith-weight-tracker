@@ -2,6 +2,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { triggerHaptic } from './android.js';
+import { attachSheetGesture } from './components/sheetGesture.js';
 
 /**
  * Zenith Native Camera & Progress Photo Architecture (Section 1.5)
@@ -64,14 +65,14 @@ async function processAndStore(src, { maxEdge = 1600, quality = 0.82 } = {}) {
   const img = await loadImage(src);
   const full = await drawToBlob(img, maxEdge, quality); // Re-encoding strips EXIF & GPS
   const thumb = await drawToBlob(img, 400, 0.70);
+  const fullBase64 = await blobToBase64(full.blob);
+  const thumbBase64 = await blobToBase64(thumb.blob);
   const id = crypto.randomUUID ? crypto.randomUUID() : 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
   const photoPath = `photos/${id}.jpg`;
   const thumbPath = `photos/${id}_t.jpg`;
 
   if (Capacitor.isNativePlatform()) {
     try {
-      const fullBase64 = await blobToBase64(full.blob);
-      const thumbBase64 = await blobToBase64(thumb.blob);
       await Filesystem.writeFile({
         path: photoPath,
         data: fullBase64,
@@ -97,6 +98,9 @@ async function processAndStore(src, { maxEdge = 1600, quality = 0.82 } = {}) {
     photoPath,
     thumbPath,
     displayUrl,
+    photoUri: displayUrl,
+    thumbUri: thumb.blobUrl,
+    base64: fullBase64,
     width: full.w,
     height: full.h,
     bytes: full.blob.size
@@ -181,27 +185,45 @@ export function openPhotoActionSheet({ onCamera, onGallery, onRemove, hasExistin
 
   const sheet = document.createElement('div');
   sheet.id = 'photo-action-sheet';
-  sheet.className = 'modal-backdrop open';
+  sheet.className = 'modal-backdrop';
   sheet.innerHTML = `
-    <div class="modal-dialog photo-action-dialog" style="max-width: 380px; padding: 1.25rem;">
-      <div class="sheet-handle" style="margin-bottom: 0.5rem;"></div>
-      <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 0.75rem; text-align: center;">Photo</div>
-      <div style="display: flex; flex-direction: column; gap: 8px;">
-        <button class="btn btn-secondary action-sheet-btn" id="act-camera" style="justify-content: flex-start; gap: 12px; height: 50px;">
-          <i data-lucide="camera" style="width: 20px; height: 20px; color: var(--accent-primary);"></i>
-          <span>Take photo</span>
+    <div class="modal-dialog photo-action-dialog" style="max-width: 400px; padding: 1rem 1.25rem 1.75rem; border-radius: 24px 24px 0 0; background: var(--bg-surface-elevated); box-shadow: var(--shadow-sheet);">
+      <div class="sheet-handle" id="photo-sheet-grabber" style="margin-bottom: 0.75rem;"></div>
+      <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 1rem; text-align: center; color: var(--text-primary);">Check-in Photo</div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button type="button" class="btn btn-secondary action-sheet-btn" id="act-camera" style="display: flex; align-items: center; justify-content: flex-start; gap: 14px; height: 56px; border-radius: var(--radius-md); padding: 0 16px; border: 1px solid var(--border-subtle); background: var(--bg-surface);">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(48, 209, 88, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <i data-lucide="camera" style="width: 20px; height: 20px; color: var(--accent-primary);"></i>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left;">
+            <span style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">Take photo</span>
+            <span style="font-size: 0.75rem; color: var(--text-secondary);">Use device camera to snap a new photo</span>
+          </div>
         </button>
-        <button class="btn btn-secondary action-sheet-btn" id="act-gallery" style="justify-content: flex-start; gap: 12px; height: 50px;">
-          <i data-lucide="image" style="width: 20px; height: 20px; color: var(--text-secondary);"></i>
-          <span>Choose from library</span>
+
+        <button type="button" class="btn btn-secondary action-sheet-btn" id="act-gallery" style="display: flex; align-items: center; justify-content: flex-start; gap: 14px; height: 56px; border-radius: var(--radius-md); padding: 0 16px; border: 1px solid var(--border-subtle); background: var(--bg-surface);">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <i data-lucide="image" style="width: 20px; height: 20px; color: var(--text-primary);"></i>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left;">
+            <span style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">Choose from gallery</span>
+            <span style="font-size: 0.75rem; color: var(--text-secondary);">Select from your photo library</span>
+          </div>
         </button>
+
         ${hasExisting ? `
-          <button class="btn btn-secondary action-sheet-btn" id="act-remove" style="justify-content: flex-start; gap: 12px; height: 50px; color: var(--color-error);">
-            <i data-lucide="trash-2" style="width: 20px; height: 20px; color: var(--color-error);"></i>
-            <span>Remove photo</span>
+          <button type="button" class="btn btn-secondary action-sheet-btn" id="act-remove" style="display: flex; align-items: center; justify-content: flex-start; gap: 14px; height: 56px; border-radius: var(--radius-md); padding: 0 16px; border: 1px solid rgba(255, 69, 58, 0.25); background: var(--bg-surface);">
+            <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(255, 69, 58, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <i data-lucide="trash-2" style="width: 20px; height: 20px; color: var(--color-error);"></i>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left;">
+              <span style="font-weight: 600; font-size: 0.95rem; color: var(--color-error);">Remove photo</span>
+              <span style="font-size: 0.75rem; color: var(--text-secondary);">Delete current check-in photo</span>
+            </div>
           </button>
         ` : ''}
-        <button class="btn btn-ghost action-sheet-btn" id="act-cancel" style="height: 46px; margin-top: 4px;">
+
+        <button type="button" class="btn btn-ghost action-sheet-btn" id="act-cancel" style="height: 48px; margin-top: 6px; border-radius: var(--radius-md); font-weight: 600; color: var(--text-secondary); background: transparent;">
           Cancel
         </button>
       </div>
@@ -210,11 +232,25 @@ export function openPhotoActionSheet({ onCamera, onGallery, onRemove, hasExistin
 
   document.body.appendChild(sheet);
   if (window.lucide) window.lucide.createIcons();
+  requestAnimationFrame(() => sheet.classList.add('open'));
 
+  const dialog = sheet.querySelector('.photo-action-dialog');
+  const grabber = sheet.querySelector('#photo-sheet-grabber');
+
+  let closed = false;
+  let detachGesture = null;
   const close = () => {
+    if (closed) return;
+    closed = true;
+    if (detachGesture) detachGesture();
     sheet.classList.remove('open');
-    setTimeout(() => sheet.remove(), 200);
+    setTimeout(() => sheet.remove(), 250);
   };
+
+  detachGesture = attachSheetGesture(dialog, {
+    handle: grabber,
+    onClose: close
+  });
 
   sheet.querySelector('#act-camera')?.addEventListener('click', () => {
     close();

@@ -320,7 +320,7 @@ export class ModalManager {
           </div>
 
           <!-- Progressive Disclosure Body -->
-          <div id="progressive-details-container" style="display: ${isDetailsExpanded ? 'block' : 'none'};">
+          <div id="progressive-details-container" class="progressive-details-stack" style="display: ${isDetailsExpanded ? 'flex' : 'none'};">
             <!-- Full Date & Time Picker -->
             <div class="form-group">
               <label class="form-label" for="log-date-input">Date & Time</label>
@@ -328,7 +328,10 @@ export class ModalManager {
             </div>
 
             <!-- Standardized 2-column FieldNumber grid (Section 1.4) -->
-            <div class="field-grid" id="field-grid-mount"></div>
+            <div class="form-group">
+              <label class="form-label">Body Measurements</label>
+              <div class="field-grid" id="field-grid-mount"></div>
+            </div>
 
             <!-- Notes -->
             <div class="form-group">
@@ -484,7 +487,7 @@ export class ModalManager {
     btnToggle?.addEventListener('click', () => {
       triggerHaptic('light');
       isDetailsExpanded = !isDetailsExpanded;
-      if (detailsContainer) detailsContainer.style.display = isDetailsExpanded ? 'block' : 'none';
+      if (detailsContainer) detailsContainer.style.display = isDetailsExpanded ? 'flex' : 'none';
       if (disclosureText) disclosureText.textContent = isDetailsExpanded ? 'Fewer details' : 'More details (body fat, waist, notes, photo)';
       if (disclosureIcon) disclosureIcon.setAttribute('data-lucide', isDetailsExpanded ? 'chevron-up' : 'chevron-down');
       if (window.lucide) window.lucide.createIcons();

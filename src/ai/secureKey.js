@@ -114,7 +114,7 @@ export async function testKey(apiKey) {
 
   try {
     const res = await CapacitorHttp.get({
-      url: 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',
+      url: `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=${encodeURIComponent(keyToTest)}`,
       headers: {
         'x-goog-api-key': keyToTest
       },

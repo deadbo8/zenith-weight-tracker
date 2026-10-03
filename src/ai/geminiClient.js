@@ -34,21 +34,25 @@ export async function generate({
   let fallbackIndex = 0;
 
   const executeCall = async (modelToUse) => {
-    const body = {
-      ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-      contents,
-      generationConfig: {
-        temperature,
-        maxOutputTokens,
-        ...(schema ? { responseMimeType: 'application/json', responseSchema: schema } : {})
-      }
-    };
-
     let attempt = 0;
+    let useSchema = !!schema;
+
     while (true) {
+      const body = {
+        ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+        contents,
+        generationConfig: {
+          temperature,
+          maxOutputTokens,
+          ...(useSchema && schema
+            ? { responseMimeType: 'application/json', responseSchema: schema }
+            : { responseMimeType: 'application/json' })
+        }
+      };
+
       try {
         const res = await CapacitorHttp.post({
-          url: `${BASE}/models/${encodeURIComponent(modelToUse)}:generateContent`,
+          url: `${BASE}/models/${encodeURIComponent(modelToUse)}:generateContent?key=${encodeURIComponent(apiKey)}`,
           headers: {
             'Content-Type': 'application/json',
             'x-goog-api-key': apiKey
@@ -60,6 +64,13 @@ export async function generate({
 
         if (res.status === 200) {
           return parseCandidate(res.data, modelToUse);
+        }
+
+        // If 400 occurred with responseSchema, retry immediately without responseSchema (plain JSON mode)
+        if (res.status === 400 && useSchema) {
+          console.warn('[GeminiClient] 400 with responseSchema, retrying with prompt-only JSON format...');
+          useSchema = false;
+          continue;
         }
 
         const err = mapHttpError(res.status, res.data);
@@ -99,7 +110,16 @@ export async function generate({
   }
 }
 
-function parseCandidate(data, modelUsed) {
+function parseCandidate(rawData, modelUsed) {
+  let data = rawData;
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch (e) {
+      console.warn('[GeminiClient] Could not parse raw string payload as JSON:', e);
+    }
+  }
+
   if (data?.promptFeedback?.blockReason) {
     throw new AiError('blocked', 'Request blocked by safety filters', {
       reason: data.promptFeedback.blockReason
@@ -110,7 +130,8 @@ function parseCandidate(data, modelUsed) {
   const text = cand?.content?.parts?.map(p => p.text ?? '').join('') ?? '';
   if (!text) {
     throw new AiError('empty', 'Empty response from model', {
-      finishReason: cand?.finishReason
+      finishReason: cand?.finishReason,
+      raw: data
     });
   }
 
@@ -122,14 +143,21 @@ function parseCandidate(data, modelUsed) {
   };
 }
 
-function mapHttpError(status, data) {
-  const msg = data?.error?.message ?? '';
-  if (status === 400 && /API key/i.test(msg)) return new AiError('bad_key', msg);
-  if (status === 401 || status === 403) return new AiError('bad_key', msg);
-  if (status === 404) return new AiError('model_gone', msg);
-  if (status === 429) return new AiError('rate_limit', msg);
-  if (status >= 500) return new AiError('server', msg);
-  return new AiError('bad_request', msg, { status });
+function mapHttpError(status, rawData) {
+  let data = rawData;
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch (e) {}
+  }
+  const msg = data?.error?.message ?? (typeof data === 'string' ? data : '');
+  if ((status === 400 && /API key|key invalid|API_KEY_INVALID/i.test(msg)) || status === 401 || status === 403) {
+    return new AiError('bad_key', msg || 'Invalid API key');
+  }
+  if (status === 404) return new AiError('model_gone', msg || 'Model not found');
+  if (status === 429) return new AiError('rate_limit', msg || 'Rate limit or quota reached');
+  if (status >= 500) return new AiError('server', msg || 'Google server error');
+  return new AiError('bad_request', msg || `Bad request (status ${status})`, { status, raw: data });
 }
 
 function shouldRetry(kind) {
@@ -145,7 +173,7 @@ export async function testConnection(customKey = null) {
 
   try {
     const res = await CapacitorHttp.get({
-      url: `${BASE}/models?pageSize=1`,
+      url: `${BASE}/models?pageSize=1&key=${encodeURIComponent(apiKey)}`,
       headers: {
         'x-goog-api-key': apiKey
       },
@@ -173,7 +201,7 @@ export async function fetchAvailableModels() {
 
   try {
     const res = await CapacitorHttp.get({
-      url: `${BASE}/models?pageSize=100`,
+      url: `${BASE}/models?pageSize=100&key=${encodeURIComponent(apiKey)}`,
       headers: { 'x-goog-api-key': apiKey },
       connectTimeout: 10000,
       readTimeout: 15000

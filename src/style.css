@@ -1708,6 +1708,17 @@ h1, h2, h3, h4, h5, h6 {
   padding: 1rem 0;
   background: var(--bg-surface-elevated);
   border-radius: var(--radius-lg);
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+#ruler-dial-mount {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  position: relative;
 }
 
 .weight-input-container {
@@ -1752,13 +1763,27 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Horizontal Ruler Dial (Apple Precision Instrument - Section 1.1) */
-.ruler { --tick-w: 12px; position: relative; height: 96px; margin-inline: -20px; user-select: none; }
+.ruler {
+  --tick-w: 12px;
+  position: relative;
+  height: 96px;
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
+  user-select: none;
+  box-sizing: border-box;
+}
 .ruler-scroller {
-  height: 100%; overflow-x: auto; overflow-y: hidden;
-  scroll-snap-type: x mandatory; scrollbar-width: none;
-  overscroll-behavior-x: contain; touch-action: pan-x;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16%, #000 84%, transparent 100%);
-          mask-image: linear-gradient(90deg, transparent 0, #000 16%, #000 84%, transparent 100%);
+  height: 100%;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 18%, #000 82%, transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0%, #000 18%, #000 82%, transparent 100%);
 }
 .ruler-scroller::-webkit-scrollbar { display: none; }
 .ruler-track {
@@ -1797,8 +1822,16 @@ h1, h2, h3, h4, h5, h6 {
 .sheet-scroller { overflow-y: auto; overscroll-behavior: contain; }
 body.modal-open { overflow: hidden !important; }
 
-/* Normalized Field Number 2-column Grid (Section 1.4) */
-.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 0.85rem; }
+/* Progressive Details Stack & Normalized Field Number 2-column Grid (Section 1.4) */
+.progressive-details-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  margin-top: 1rem;
+}
+.hidden { display: none !important; }
+
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 0; }
 .field { position: relative; min-height: 60px; padding: 10px 14px; border-radius: 14px;
          background: var(--bg-surface-elevated); display: flex; flex-direction: column; justify-content: center;
          border: 1px solid var(--border-subtle); transition: border-color var(--transition-fast); }
@@ -5257,9 +5290,25 @@ body.fuel-active .mobile-nav-center-btn {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 1.1rem;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.dock-btn-icon:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+}
+
+.dock-btn-icon:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.20);
+}
+
+.dock-btn-icon svg,
+.dock-btn-icon i {
+  width: 19px;
+  height: 19px;
 }
 
 .dock-text-input-wrap {

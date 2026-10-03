@@ -12,7 +12,7 @@ import { getCachedAiResult, setCachedAiResult } from '../ai/cache.js';
 import { getKey, setKey } from '../ai/secureKey.js';
 import { estimateOfflineMeal } from '../ai/fallbackEstimator.js';
 import { getModelForTask } from '../ai/models.js';
-import { captureProgressPhoto } from '../camera.js';
+import { capturePhoto, captureProgressPhoto } from '../camera.js';
 import { createMealConfirmCard, bindMealConfirmCard } from './mealConfirmCard.js';
 import { openAddFoodSheet } from './addFoodSheet.js';
 import { triggerHaptic } from '../android.js';
@@ -53,8 +53,12 @@ export class ChatLayer {
 
         <!-- Input Row -->
         <div class="dock-input-row">
-          <button class="dock-btn-icon" id="btn-dock-camera" aria-label="Take food photo">📷</button>
-          <button class="dock-btn-icon" id="btn-dock-gallery" aria-label="Choose photo from gallery">🖼</button>
+          <button class="dock-btn-icon" id="btn-dock-camera" aria-label="Take food photo" title="Camera">
+            <i data-lucide="camera" style="width: 18px; height: 18px;"></i>
+          </button>
+          <button class="dock-btn-icon" id="btn-dock-gallery" aria-label="Choose photo from gallery" title="Gallery">
+            <i data-lucide="image" style="width: 18px; height: 18px;"></i>
+          </button>
           
           <div class="dock-text-input-wrap">
             <input
@@ -108,12 +112,12 @@ export class ChatLayer {
       }
     });
 
-    // Camera action
+    // Camera action - opens device camera directly
     cameraBtn?.addEventListener('click', async () => {
       triggerHaptic('light');
       try {
-        const photoResult = await captureProgressPhoto();
-        if (photoResult && photoResult.photoUri) {
+        const photoResult = await capturePhoto('camera');
+        if (photoResult && (photoResult.photoUri || photoResult.displayUrl)) {
           this.setPendingPhoto(photoResult);
           if (sendBtn) {
             sendBtn.disabled = false;
@@ -125,12 +129,12 @@ export class ChatLayer {
       }
     });
 
-    // Gallery action
+    // Gallery action - opens photo library directly
     galleryBtn?.addEventListener('click', async () => {
       triggerHaptic('light');
       try {
-        const photoResult = await captureProgressPhoto();
-        if (photoResult && photoResult.photoUri) {
+        const photoResult = await capturePhoto('gallery');
+        if (photoResult && (photoResult.photoUri || photoResult.displayUrl)) {
           this.setPendingPhoto(photoResult);
           if (sendBtn) {
             sendBtn.disabled = false;
@@ -179,6 +183,8 @@ export class ChatLayer {
         }
       });
     });
+
+    if (window.lucide) window.lucide.createIcons();
   }
 
   setPendingPhoto(photoResult) {
@@ -186,7 +192,7 @@ export class ChatLayer {
     const previewWrap = document.querySelector('#dock-photo-preview');
     const previewImg = document.querySelector('#dock-preview-img');
     if (previewWrap && previewImg) {
-      previewImg.src = photoResult.thumbUri || photoResult.photoUri;
+      previewImg.src = photoResult.thumbUri || photoResult.displayUrl || photoResult.photoUri;
       previewWrap.classList.remove('hidden');
     }
   }

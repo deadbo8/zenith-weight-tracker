@@ -10,9 +10,9 @@ const macros = {
   protein_g: num,
   carbs_g: num,
   fat_g: num,
-  fiber_g: { ...num, nullable: true },
-  sugar_g: { ...num, nullable: true },
-  sodium_mg: { ...num, nullable: true }
+  fiber_g: num,
+  sugar_g: num,
+  sodium_mg: num
 };
 
 export const RESPONSE_SCHEMA = {
@@ -25,7 +25,6 @@ export const RESPONSE_SCHEMA = {
     assistant_message: str,
     meal: {
       type: 'OBJECT',
-      nullable: true,
       properties: {
         title: str,
         meal_type: { type: 'STRING', enum: ['breakfast', 'lunch', 'dinner', 'snack'] },
@@ -37,7 +36,7 @@ export const RESPONSE_SCHEMA = {
               name: str,
               quantity: num,
               unit: { type: 'STRING', enum: ['g', 'ml', 'piece', 'cup', 'tbsp', 'tsp', 'slice', 'bowl', 'serving'] },
-              grams: { ...num, nullable: true },
+              grams: num,
               ...macros,
               confidence: num,
               assumptions: { type: 'ARRAY', items: str }
@@ -58,14 +57,13 @@ export const RESPONSE_SCHEMA = {
     },
     weight: {
       type: 'OBJECT',
-      nullable: true,
       properties: {
         value: num,
         unit: { type: 'STRING', enum: ['kg', 'lb'] }
       }
     },
-    water_ml: { ...num, nullable: true },
-    clarifying_question: { ...str, nullable: true },
+    water_ml: num,
+    clarifying_question: str,
     follow_up_chips: { type: 'ARRAY', items: str },
     flags: {
       type: 'ARRAY',
