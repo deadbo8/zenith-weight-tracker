@@ -103,12 +103,17 @@ function showSpeedDialMenu({ onLogWeight, onSnapMeal, onDescribeMeal, onAddWater
     </div>
   `;
 
+  document.body.classList.add('modal-open');
   document.body.appendChild(scrim);
 
   const close = () => {
     triggerHaptic('light');
     scrim.classList.remove('is-visible');
-    setTimeout(() => scrim.remove(), 200);
+    setTimeout(() => {
+      scrim.remove();
+      const anyOther = document.querySelector('.modal-backdrop.open, .modal-backdrop.is-visible, #zenith-you-page.is-visible');
+      if (!anyOther) document.body.classList.remove('modal-open');
+    }, 200);
   };
 
   scrim.addEventListener('click', (e) => {

@@ -37,7 +37,7 @@ const appContainer = document.querySelector('#app');
 
 import { FuelScreen } from './fuel/fuelScreen.js';
 import { setupContextualFab } from './fuel/speedDial.js';
-import { openYouScreen } from './components/youScreen.js';
+import { openYouScreen, closeYouScreen } from './components/youScreen.js';
 
 // Android 4-Screen Ecosystem Layout Architecture: Today · Trends · [ + ] · Fuel · Journey
 appContainer.innerHTML = `
@@ -591,7 +591,7 @@ initAndroidBridge({
       return;
     }
     if (modal.id === 'zenith-you-page') {
-      modal.remove();
+      closeYouScreen();
       return;
     }
     modal.querySelector('.close-modal, #btn-cancel-log, #btn-cancel-add-food')?.click() || modal.remove();

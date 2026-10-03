@@ -14,12 +14,31 @@ export function openYouScreen() {
   const existing = document.querySelector('#zenith-you-page');
   if (existing) existing.remove();
 
+  document.body.classList.add('modal-open');
+
   const youPage = document.createElement('div');
   youPage.className = 'zenith-you-page is-visible';
   youPage.id = 'zenith-you-page';
 
   document.body.appendChild(youPage);
   renderYouPageContent(youPage);
+}
+
+export function closeYouScreen() {
+  const youPage = document.querySelector('#zenith-you-page');
+  if (youPage) {
+    youPage.classList.remove('is-visible');
+    youPage.classList.add('closing');
+    setTimeout(() => {
+      youPage.remove();
+      const anyOther = document.querySelector('.modal-backdrop.open, .modal-backdrop.is-visible');
+      if (!anyOther) {
+        document.body.classList.remove('modal-open');
+      }
+    }, 220);
+  } else {
+    document.body.classList.remove('modal-open');
+  }
 }
 
 async function renderYouPageContent(container) {
@@ -44,8 +63,13 @@ async function renderYouPageContent(container) {
 
   container.innerHTML = `
     <div class="you-page-header-bar">
-      <button class="you-page-back-btn" id="btn-close-you" aria-label="Close You Profile">✕</button>
-      <h1 class="you-page-nav-title">You</h1>
+      <button class="you-page-back-btn" id="btn-close-you" aria-label="Close Profile">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      <h1 class="you-page-nav-title">Profile & Settings</h1>
       <div style="width: 40px;"></div>
     </div>
 
@@ -324,7 +348,7 @@ function bindYouPageEvents(container) {
   // Close
   container.querySelector('#btn-close-you')?.addEventListener('click', () => {
     triggerHaptic('light');
-    container.remove();
+    closeYouScreen();
   });
 
   // Body and Goal inputs

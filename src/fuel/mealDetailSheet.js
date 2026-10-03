@@ -5,10 +5,12 @@
 
 import { fmtInt } from '../format.js';
 import { triggerHaptic } from '../android.js';
+import { attachSheetGesture } from '../components/sheetGesture.js';
 
 export function openMealDetailSheet(meal, { onEdit, onDelete, onDuplicate }) {
+  document.body.classList.add('modal-open');
   const overlay = document.createElement('div');
-  overlay.className = 'modal-backdrop is-visible';
+  overlay.className = 'modal-backdrop open is-visible';
   overlay.id = 'modal-meal-detail';
 
   const itemsHtml = (meal.items || []).map(it => `
@@ -69,8 +71,18 @@ export function openMealDetailSheet(meal, { onEdit, onDelete, onDuplicate }) {
   document.body.appendChild(overlay);
 
   const close = () => {
-    overlay.remove();
+    overlay.classList.remove('open');
+    setTimeout(() => {
+      overlay.remove();
+      const anyOther = document.querySelector('.modal-backdrop.open, #zenith-you-page.is-visible');
+      if (!anyOther) document.body.classList.remove('modal-open');
+    }, 200);
   };
+
+  attachSheetGesture(overlay, {
+    onDismiss: close,
+    handleSelector: '.modal-sheet-handle, .modal-sheet-dialog'
+  });
 
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) close();
