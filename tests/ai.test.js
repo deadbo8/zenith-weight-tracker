@@ -169,11 +169,48 @@ describe('AI Layer - Offline Fallback Estimator', () => {
     expect(res.weight.unit).toBe('kg');
   });
 
-  it('provides safe fallback for unknown food', () => {
+  it('provides safe fallback for unknown food with proper mealType and kcal ranges', () => {
     const res = estimateOfflineMeal('grandma special casserole');
     expect(res.intent).toBe('log_meal');
     expect(res.meal.totals.kcal).toBe(420);
     expect(res.meal.confidence).toBe('medium');
+    expect(['breakfast', 'lunch', 'dinner', 'snack']).toContain(res.meal.mealType);
+    expect(res.meal.kcalLow).toBe(Math.round(420 * 0.85));
+    expect(res.meal.kcalHigh).toBe(Math.round(420 * 1.15));
+    expect(res.meal.overallConfidence).toBe(0.8);
   });
 });
+
+import { store, DEFAULT_PROFILE_V3 } from '../src/state.js';
+
+describe('Profile & AI Settings Persistence', () => {
+  it('initializes default profile with ai quality balanced and sendProfileContext true', () => {
+    expect(DEFAULT_PROFILE_V3.ai).toBeDefined();
+    expect(DEFAULT_PROFILE_V3.ai.quality).toBe('balanced');
+    expect(DEFAULT_PROFILE_V3.ai.sendProfileContext).toBe(true);
+  });
+
+  it('persists AI quality tier changes in store', () => {
+    store.setProfile({ ai: { quality: 'best', sendProfileContext: false } });
+    const profile = store.getState().profile;
+    expect(profile.ai.quality).toBe('best');
+    expect(profile.ai.sendProfileContext).toBe(false);
+
+    // Reset to balanced
+    store.setProfile({ ai: { quality: 'balanced', sendProfileContext: true } });
+  });
+
+  it('persists custom displayName and photo avatar in store', () => {
+    store.setProfile({
+      displayName: 'Alex Mercer',
+      avatar: { type: 'photo', photoPath: 'photos/alex.jpg' }
+    });
+    const profile = store.getState().profile;
+    expect(profile.displayName).toBe('Alex Mercer');
+    expect(profile.name).toBe('Alex Mercer');
+    expect(profile.avatar.type).toBe('photo');
+    expect(profile.avatar.photoPath).toBe('photos/alex.jpg');
+  });
+});
+
 

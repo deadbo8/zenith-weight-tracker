@@ -45,9 +45,15 @@ export class FuelScreen {
     const container = document.getElementById(this.containerId);
     if (!container) return;
 
-    // Preserve active chat messages if already rendered
-    const existingChatEl = container.querySelector('#fuel-chat-messages');
-    const savedChatHtml = existingChatEl ? existingChatEl.innerHTML : '';
+    // Preserve active chat messages DOM element if already rendered
+    let existingChatEl = container.querySelector('#fuel-chat-messages');
+    if (existingChatEl) {
+      existingChatEl.remove();
+    } else {
+      existingChatEl = document.createElement('div');
+      existingChatEl.className = 'fuel-chat-messages-container';
+      existingChatEl.id = 'fuel-chat-messages';
+    }
 
     const summary = store.getDailyNutritionSummary(this.selectedDate);
     const weekDots = store.getWeekDots(this.selectedDate);
@@ -92,8 +98,8 @@ export class FuelScreen {
           </div>
         </div>
 
-        <!-- Chat Conversation Messages (preserved across renders) -->
-        <div class="fuel-chat-messages-container" id="fuel-chat-messages">${savedChatHtml}</div>
+        <!-- Chat Conversation Messages (preserved live DOM node) -->
+        <div id="fuel-chat-messages-anchor"></div>
 
         <!-- Meal Timeline by Category -->
         <div class="fuel-timeline-wrapper">
@@ -111,6 +117,12 @@ export class FuelScreen {
       <!-- Sticky Floating Chat Dock -->
       ${this.chatLayer.renderDock()}
     `;
+
+    // Re-mount the live chat DOM node
+    const anchor = container.querySelector('#fuel-chat-messages-anchor');
+    if (anchor) {
+      anchor.replaceWith(existingChatEl);
+    }
 
     // Bind event handlers
     this.bindEvents(container);

@@ -158,9 +158,13 @@ export function estimateOfflineMeal(rawText = '') {
     assistantMessage: `Offline estimate: ${totals.kcal} kcal (${totals.proteinG}g protein). Tap below to adjust or save.`,
     meal: {
       title,
-      category,
+      mealType: category || 'lunch',
+      category: category || 'lunch',
       totals,
       items: matchedItems,
+      kcalLow: Math.round(totals.kcal * 0.85),
+      kcalHigh: Math.round(totals.kcal * 1.15),
+      overallConfidence: 0.8,
       confidence: 'medium',
       source: 'offline'
     },

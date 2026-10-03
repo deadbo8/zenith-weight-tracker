@@ -8,7 +8,7 @@ import { store, getLocalDateString } from '../state.js';
 import { testConnection } from '../ai/geminiClient.js';
 import { getKey, setKey, removeKey } from '../ai/secureKey.js';
 import { triggerHaptic } from '../android.js';
-import { captureProgressPhoto } from '../camera.js';
+import { capturePhoto, openPhotoActionSheet } from '../camera.js';
 
 export function openYouScreen() {
   const existing = document.querySelector('#zenith-you-page');
@@ -77,15 +77,18 @@ async function renderYouPageContent(container) {
       <!-- Profile Header Card -->
       <div class="you-profile-card">
         <div class="you-avatar-row">
-          <div class="you-avatar-circle" id="btn-change-avatar" role="button" aria-label="Change photo">
+          <div class="you-avatar-circle" id="btn-change-avatar" role="button" aria-label="Change photo" style="position: relative; cursor: pointer;">
             ${profile.avatar?.photoPath ? `
               <img src="${profile.avatar.photoPath}" class="you-avatar-img" alt="${profile.displayName}" />
             ` : `
               <span>${initials}</span>
             `}
+            <div class="you-avatar-camera-badge" style="position: absolute; bottom: -2px; right: -2px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent-primary); color: #000; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.5); border: 2px solid var(--bg-surface-elevated);">
+              <i data-lucide="camera" style="width: 12px; height: 12px;"></i>
+            </div>
           </div>
           <div class="you-profile-meta">
-            <h2 class="you-display-name">${profile.displayName || 'My Profile'}</h2>
+            <h2 class="you-display-name" id="you-header-name">${profile.displayName || 'My Profile'}</h2>
             <span class="you-member-since">Zenith 2.0 · Precision Intelligence</span>
           </div>
         </div>
@@ -122,6 +125,11 @@ async function renderYouPageContent(container) {
       <!-- GROUP 1: BODY AND GOAL -->
       <div class="you-inset-group">
         <div class="group-title">Body and Goal</div>
+
+        <div class="you-row">
+          <span class="row-label">Your Name</span>
+          <input type="text" id="field-display-name" class="row-input" value="${profile.displayName || ''}" placeholder="Enter your name" />
+        </div>
 
         <div class="you-row">
           <span class="row-label">Biological Sex</span>
@@ -255,9 +263,9 @@ async function renderYouPageContent(container) {
         <div class="you-row">
           <span class="row-label">Quality Tier</span>
           <select class="row-select" id="field-ai-quality">
-            <option value="fast" ${state.ai?.quality === 'fast' ? 'selected' : ''}>Fast (Gemini 3.5 Flash-Lite)</option>
-            <option value="balanced" ${state.ai?.quality === 'balanced' ? 'selected' : ''}>Balanced (Gemini 3.5 Flash)</option>
-            <option value="best" ${state.ai?.quality === 'best' ? 'selected' : ''}>Best (Gemini 3.8 Flash)</option>
+            <option value="fast" ${(profile.ai?.quality === 'fast') ? 'selected' : ''}>Fast (Gemini 3.5 Flash-Lite)</option>
+            <option value="balanced" ${(profile.ai?.quality === 'balanced' || !profile.ai?.quality) ? 'selected' : ''}>Balanced (Gemini 3.5 Flash)</option>
+            <option value="best" ${(profile.ai?.quality === 'best') ? 'selected' : ''}>Best (Gemini 3.8 Flash)</option>
           </select>
         </div>
 
@@ -266,7 +274,7 @@ async function renderYouPageContent(container) {
             <span class="row-label">Share profile with assistant</span>
             <span class="row-subtitle">Sends diet & allergies for portion estimates</span>
           </div>
-          <input type="checkbox" id="field-share-profile" class="row-toggle" ${state.ai?.sendProfileContext !== false ? 'checked' : ''} />
+          <input type="checkbox" id="field-share-profile" class="row-toggle" ${profile.ai?.sendProfileContext !== false ? 'checked' : ''} />
         </div>
 
         <div class="you-row" id="btn-what-is-sent">
@@ -358,6 +366,18 @@ function bindYouPageEvents(container) {
       store.setProfile({ [prop]: transform(e.target.value) });
     });
   };
+
+  // Name input
+  const nameInput = container.querySelector('#field-display-name');
+  nameInput?.addEventListener('input', (e) => {
+    const val = e.target.value;
+    const headerName = container.querySelector('#you-header-name');
+    if (headerName) headerName.textContent = val.trim() || 'My Profile';
+  });
+  nameInput?.addEventListener('change', (e) => {
+    const val = e.target.value.trim() || 'My Profile';
+    store.setProfile({ displayName: val, name: val });
+  });
 
   bindField('field-sex', 'sex');
   bindField('field-age', 'age', v => parseInt(v, 10));
@@ -483,6 +503,27 @@ function bindYouPageEvents(container) {
     );
   });
 
+  // AI Quality tier & Context Sharing
+  container.querySelector('#field-ai-quality')?.addEventListener('change', (e) => {
+    triggerHaptic('selection');
+    store.setProfile({
+      ai: {
+        ...(store.getState().profile.ai || {}),
+        quality: e.target.value
+      }
+    });
+  });
+
+  container.querySelector('#field-share-profile')?.addEventListener('change', (e) => {
+    triggerHaptic('selection');
+    store.setProfile({
+      ai: {
+        ...(store.getState().profile.ai || {}),
+        sendProfileContext: e.target.checked
+      }
+    });
+  });
+
   // Display and Units
   container.querySelector('#field-unit-weight')?.addEventListener('change', (e) => {
     store.setUnit(e.target.value);
@@ -532,22 +573,54 @@ function bindYouPageEvents(container) {
     }
   });
 
-  // Change avatar photo
-  container.querySelector('#btn-change-avatar')?.addEventListener('click', async () => {
-    try {
-      const res = await captureProgressPhoto();
-      if (res && res.photoUri) {
-        store.setProfile({
-          avatar: {
-            type: 'photo',
-            photoPath: res.photoUri,
-            thumbPath: res.thumbUri
+  // Change avatar photo via modern action sheet
+  container.querySelector('#btn-change-avatar')?.addEventListener('click', () => {
+    triggerHaptic('light');
+    const curProfile = store.getState().profile;
+    openPhotoActionSheet({
+      hasExisting: !!(curProfile.avatar && curProfile.avatar.photoPath),
+      onCamera: async () => {
+        try {
+          const res = await capturePhoto('camera');
+          if (res && (res.photoUri || res.displayUrl)) {
+            store.setProfile({
+              avatar: {
+                type: 'photo',
+                photoPath: res.displayUrl || res.photoUri,
+                thumbPath: res.thumbUri || res.photoUri
+              }
+            });
+            renderYouPageContent(container);
           }
+        } catch (e) {
+          console.warn('Avatar camera error:', e);
+        }
+      },
+      onGallery: async () => {
+        try {
+          const res = await capturePhoto('gallery');
+          if (res && (res.photoUri || res.displayUrl)) {
+            store.setProfile({
+              avatar: {
+                type: 'photo',
+                photoPath: res.displayUrl || res.photoUri,
+                thumbPath: res.thumbUri || res.photoUri
+              }
+            });
+            renderYouPageContent(container);
+          }
+        } catch (e) {
+          console.warn('Avatar gallery error:', e);
+        }
+      },
+      onRemove: () => {
+        store.setProfile({
+          avatar: { type: 'initials', color: '#30D158' }
         });
         renderYouPageContent(container);
       }
-    } catch (e) {
-      console.warn('Avatar photo error:', e);
-    }
+    });
   });
+
+  if (window.lucide) window.lucide.createIcons();
 }

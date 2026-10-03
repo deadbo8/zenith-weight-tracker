@@ -64,6 +64,10 @@ export const DEFAULT_PROFILE_V3 = {
     headlineDisplay: 'trend',
     haptics: true
   },
+  ai: {
+    quality: 'balanced',
+    sendProfileContext: true
+  },
   theme: 'dark', // Legacy compat
   headlineDisplay: 'trend', // Legacy compat
   reminders: {
@@ -227,6 +231,7 @@ class Store {
     profile.nutrition = { ...DEFAULT_PROFILE_V3.nutrition, ...(profile.nutrition || {}) };
     profile.diet = { ...DEFAULT_PROFILE_V3.diet, ...(profile.diet || {}) };
     profile.ui = { ...DEFAULT_PROFILE_V3.ui, ...(profile.ui || {}) };
+    profile.ai = { ...DEFAULT_PROFILE_V3.ai, ...(profile.ai || {}) };
 
     // Synchronize legacy top-level profile aliases
     profile.unit = profile.units.weight || profile.unit || 'kg';
@@ -406,6 +411,11 @@ class Store {
   // Profile Actions
   setProfile(partialProfile) {
     this.state.profile = { ...this.state.profile, ...partialProfile };
+    if (partialProfile.displayName) {
+      this.state.profile.name = partialProfile.displayName;
+    } else if (partialProfile.name) {
+      this.state.profile.displayName = partialProfile.name;
+    }
     if (partialProfile.unit) {
       this.state.profile.units = { ...this.state.profile.units, weight: partialProfile.unit };
     }
@@ -415,6 +425,9 @@ class Store {
     if (partialProfile.theme) {
       this.state.profile.ui = { ...this.state.profile.ui, theme: partialProfile.theme };
       document.documentElement?.setAttribute('data-theme', partialProfile.theme);
+    }
+    if (partialProfile.ai) {
+      this.state.profile.ai = { ...(this.state.profile.ai || {}), ...partialProfile.ai };
     }
     setMeta('profile', this.state.profile);
     this.notify();

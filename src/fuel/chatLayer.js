@@ -184,6 +184,49 @@ export class ChatLayer {
       });
     });
 
+    // Permanent Event Delegation on #fuel-chat-messages (save, discard, steppers, chips)
+    const chatMsgContainer = container.querySelector('#fuel-chat-messages') || document.querySelector('#fuel-chat-messages');
+    if (chatMsgContainer && !chatMsgContainer._delegationBound) {
+      chatMsgContainer._delegationBound = true;
+      chatMsgContainer.addEventListener('click', (e) => {
+        // Save Meal
+        const saveBtn = e.target.closest('.btn-confirm-save, #btn-confirm-save');
+        if (saveBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          triggerHaptic('success');
+          const card = saveBtn.closest('.meal-confirm-card') || document.querySelector('.meal-confirm-card');
+          const draft = card?._mealDraft || this.activeDraft;
+          this.commitMealDraft(draft, card?.closest('.chat-card-attachment'));
+          return;
+        }
+
+        // Discard Meal
+        const discardBtn = e.target.closest('.btn-confirm-discard, #btn-confirm-discard');
+        if (discardBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          triggerHaptic('warning');
+          const card = discardBtn.closest('.meal-confirm-card') || document.querySelector('.meal-confirm-card');
+          card?.closest('.chat-card-attachment')?.remove();
+          this.activeDraft = null;
+          this.addAssistantMessage('Meal discarded.');
+          return;
+        }
+
+        // Followup chip
+        const chipBtn = e.target.closest('.followup-chip');
+        if (chipBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          const text = chipBtn.getAttribute('data-chip');
+          chipBtn.closest('.chat-card-attachment')?.remove();
+          if (text) this.submitInput(text);
+          return;
+        }
+      });
+    }
+
     if (window.lucide) window.lucide.createIcons();
   }
 
@@ -260,7 +303,8 @@ export class ChatLayer {
       const contents = [{ role: 'user', parts }];
 
       // Check Cache
-      const modelToUse = getModelForTask('balanced', photo ? 'vision' : 'text');
+      const userQuality = profile?.ai?.quality || 'balanced';
+      const modelToUse = getModelForTask(userQuality, photo ? 'vision' : 'text');
       const cacheKey = { input: text || photo?.photoUri, note: text, model: modelToUse, promptVersion: PROMPT_VERSION };
       let validated = await getCachedAiResult(cacheKey);
 
@@ -342,9 +386,40 @@ export class ChatLayer {
     }
   }
 
+  commitMealDraft(draft, wrapEl) {
+    if (!draft) draft = this.activeDraft;
+    if (!draft) return;
+
+    if (wrapEl) {
+      wrapEl.remove();
+    } else {
+      document.querySelector('.meal-confirm-card')?.closest('.chat-card-attachment')?.remove();
+    }
+
+    draft.mealType = draft.mealType || draft.category || 'lunch';
+    const logged = this.store.addMeal(draft);
+    this.activeDraft = null;
+
+    this.showToast(`Logged "${logged.title}" (${logged.totals.kcal} kcal)`, () => {
+      this.store.deleteMeal(logged.id);
+    });
+
+    if (this.onMealLogged) this.onMealLogged();
+  }
+
   showMealConfirmCard(meal, followUpChips = []) {
     const container = document.querySelector('#fuel-chat-messages');
     if (!container) return;
+
+    // Ensure meal fields are complete
+    meal.mealType = meal.mealType || meal.category || 'lunch';
+    if (!meal.totals) {
+      meal.totals = { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 };
+    }
+    meal.kcalLow = meal.kcalLow || Math.round((meal.totals.kcal || 0) * 0.85);
+    meal.kcalHigh = meal.kcalHigh || Math.round((meal.totals.kcal || 0) * 1.15);
+
+    this.activeDraft = meal;
 
     const allergies = this.store.getState().profile.diet?.allergies || [];
     const cardHtml = createMealConfirmCard(meal, allergies);
@@ -352,6 +427,12 @@ export class ChatLayer {
     const wrap = document.createElement('div');
     wrap.className = 'chat-card-attachment';
     wrap.innerHTML = cardHtml;
+
+    const card = wrap.querySelector('.meal-confirm-card');
+    if (card) {
+      card._mealDraft = meal;
+      card.dataset.draft = JSON.stringify(meal);
+    }
 
     // Follow-up chips
     if (followUpChips && followUpChips.length > 0) {
@@ -374,23 +455,22 @@ export class ChatLayer {
     container.appendChild(wrap);
     wrap.scrollIntoView({ behavior: 'smooth' });
 
-    bindMealConfirmCard(wrap.querySelector('.meal-confirm-card'), meal, {
-      onSave: (savedDraft) => {
-        wrap.remove();
-        const logged = this.store.addMeal(savedDraft);
-        this.showToast(`Logged "${logged.title}" (${logged.totals.kcal} kcal)`, () => {
-          this.store.deleteMeal(logged.id);
-        });
-        if (this.onMealLogged) this.onMealLogged();
-      },
-      onDiscard: () => {
-        wrap.remove();
-        this.addAssistantMessage('Meal discarded.');
-      },
-      onUpdate: (updatedDraft) => {
-        this.activeDraft = updatedDraft;
-      }
-    });
+    if (card) {
+      bindMealConfirmCard(card, meal, {
+        onSave: (savedDraft) => {
+          this.commitMealDraft(savedDraft, wrap);
+        },
+        onDiscard: () => {
+          wrap.remove();
+          this.activeDraft = null;
+          this.addAssistantMessage('Meal discarded.');
+        },
+        onUpdate: (updatedDraft) => {
+          this.activeDraft = updatedDraft;
+          card._mealDraft = updatedDraft;
+        }
+      });
+    }
   }
 
   showWeightConfirmCard(weight) {

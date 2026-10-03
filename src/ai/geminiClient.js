@@ -24,7 +24,7 @@ export async function generate({
   schema,
   temperature = 0.2,
   maxOutputTokens = 2048,
-  timeoutMs = 60000,
+  timeoutMs = 15000,
   maxRetries = 1
 }) {
   const apiKey = await getKey();
@@ -60,7 +60,7 @@ export async function generate({
             'x-goog-api-key': apiKey
           },
           data: body,
-          connectTimeout: 15000,
+          connectTimeout: 8000,
           readTimeout: timeoutMs
         });
 
