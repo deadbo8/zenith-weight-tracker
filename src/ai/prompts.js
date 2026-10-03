@@ -73,35 +73,37 @@ export function buildUserContext({
   profile = {},
   todaySoFar = { kcal: 0, proteinG: 0 },
   recentFoods = []
-}) {
-  const localTime = date.toISOString().slice(0, 16);
-  const mealTypeHint = getMealTypeHint(date);
+} = {}) {
+  const safeProfile = profile || {};
+  const safeDate = date instanceof Date && !isNaN(date) ? date : new Date();
+  const localTime = safeDate.toISOString().slice(0, 16);
+  const mealTypeHint = getMealTypeHint(safeDate);
 
   const context = {
     local_time: localTime,
     meal_type_hint: mealTypeHint,
-    units: { weight: profile.units?.weight || profile.unit || 'kg' }
+    units: { weight: safeProfile.units?.weight || safeProfile.unit || 'kg' }
   };
 
-  if (profile.ai?.sendProfileContext !== false) {
-    if (profile.diet) {
+  if (safeProfile.ai?.sendProfileContext !== false) {
+    if (safeProfile.diet) {
       context.diet = {
-        pattern: profile.diet.pattern || 'balanced',
-        allergies: profile.diet.allergies || [],
-        dislikes: profile.diet.dislikes || []
+        pattern: safeProfile.diet.pattern || 'balanced',
+        allergies: safeProfile.diet.allergies || [],
+        dislikes: safeProfile.diet.dislikes || []
       };
     }
-    if (profile.nutrition) {
+    if (safeProfile.nutrition) {
       context.daily_target = {
-        kcal: profile.nutrition.customKcal || 2000,
-        protein_g: Math.round((profile.nutrition.proteinPerKg || 1.6) * (profile.startWeight || 75))
+        kcal: safeProfile.nutrition.customKcal || 2000,
+        protein_g: Math.round((safeProfile.nutrition.proteinPerKg || 1.6) * (safeProfile.startWeight || 75))
       };
     }
     context.today_so_far = {
-      kcal: todaySoFar.kcal || 0,
-      protein_g: todaySoFar.proteinG || 0
+      kcal: todaySoFar?.kcal || 0,
+      protein_g: todaySoFar?.proteinG || 0
     };
-    if (recentFoods.length > 0) {
+    if (recentFoods?.length > 0) {
       context.recent_foods = recentFoods.slice(0, 5);
     }
   }

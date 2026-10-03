@@ -18,20 +18,22 @@ export class AiError extends Error {
  * and fallback models on model retirement (404 / model_gone).
  */
 export async function generate({
-  model = 'gemini-3.5-flash',
+  model = 'gemini-3.8-flash',
   system,
   contents,
   schema,
   temperature = 0.2,
   maxOutputTokens = 2048,
   timeoutMs = 60000,
-  maxRetries = 2
+  maxRetries = 1
 }) {
   const apiKey = await getKey();
   if (!apiKey) throw new AiError('no_key', 'No API key configured');
 
-  let currentModel = model;
-  let fallbackIndex = 0;
+  const modelsToTry = [
+    model,
+    ...FALLBACK_ORDER.filter(m => m !== model)
+  ];
 
   const executeCall = async (modelToUse) => {
     let attempt = 0;
@@ -76,7 +78,7 @@ export async function generate({
         const err = mapHttpError(res.status, res.data);
         if (shouldRetry(err.kind) && attempt < maxRetries) {
           attempt++;
-          const delay = Math.pow(2, attempt) * 1000 + Math.random() * 400;
+          const delay = Math.pow(2, attempt) * 800 + Math.random() * 200;
           await new Promise(r => setTimeout(r, delay));
           continue;
         }
@@ -88,7 +90,7 @@ export async function generate({
         // Network or fetch failure
         if (attempt < maxRetries) {
           attempt++;
-          const delay = Math.pow(2, attempt) * 1000 + Math.random() * 400;
+          const delay = Math.pow(2, attempt) * 800 + Math.random() * 200;
           await new Promise(r => setTimeout(r, delay));
           continue;
         }
@@ -97,17 +99,22 @@ export async function generate({
     }
   };
 
-  try {
-    return await executeCall(currentModel);
-  } catch (err) {
-    if (err.kind === 'model_gone' && fallbackIndex < FALLBACK_ORDER.length) {
-      const nextFallback = FALLBACK_ORDER[fallbackIndex++];
-      if (nextFallback !== currentModel) {
-        return await executeCall(nextFallback);
+  let lastError = null;
+  for (const candidateModel of modelsToTry) {
+    try {
+      return await executeCall(candidateModel);
+    } catch (err) {
+      lastError = err;
+      // Fatal errors: invalid key, missing key, or blocked safety filters
+      if (err.kind === 'bad_key' || err.kind === 'no_key' || err.kind === 'blocked') {
+        throw err;
       }
+      // Recoverable error (model_gone, server 500/503 high demand, rate_limit 429) - try next model!
+      console.warn(`[GeminiClient] Model ${candidateModel} failed (${err.kind}: ${err.message}), trying next fallback...`);
     }
-    throw err;
   }
+
+  throw lastError || new AiError('unknown', 'All Gemini model fallbacks failed');
 }
 
 function parseCandidate(rawData, modelUsed) {

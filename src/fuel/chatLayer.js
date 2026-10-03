@@ -233,17 +233,14 @@ export class ChatLayer {
       const state = this.store.getState();
       const profile = state.profile;
 
-      // 1. Build context
-      const context = buildUserContext({
-        profile: profile.nutrition?.shareStatsWithCoach ? profile : null,
-        dailyTarget: {
-          kcal: 2000,
-          proteinG: 120
-        },
+      // 1. Build context & prompt
+      const promptText = buildUserContext({
+        note: text || '',
+        profile: profile?.nutrition?.shareStatsWithCoach ? profile : { unit: profile?.unit, units: profile?.units },
         todaySoFar: {
           kcal: this.store.getMealsByDay().reduce((s, m) => s + (m.totals?.kcal || 0), 0)
         },
-        recentFoods: this.store.getRecentMealTitles(4)
+        recentFoods: this.store.getRecentMealTitles ? this.store.getRecentMealTitles(4) : []
       });
 
       // 2. Build contents
@@ -257,7 +254,7 @@ export class ChatLayer {
         });
       }
       parts.push({
-        text: `Context (JSON): ${JSON.stringify(context)}\nUser note: "${text || ''}"\nTask: Identify the items, estimate portions and nutrition, and return the JSON object.`
+        text: promptText
       });
 
       const contents = [{ role: 'user', parts }];
