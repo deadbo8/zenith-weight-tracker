@@ -1,0 +1,21 @@
+{
+  "appId": "com.zenithtrack.app",
+  "appName": "ZenithTrack",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#000000"
+  },
+  "plugins": {
+    "Keyboard": {
+      "resize": "body",
+      "style": "dark",
+      "resizeOnFullScreen": true
+    },
+    "StatusBar": {
+      "overlaysWebView": false
+    },
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
