@@ -45,6 +45,10 @@ export class FuelScreen {
     const container = document.getElementById(this.containerId);
     if (!container) return;
 
+    // Preserve active chat messages if already rendered
+    const existingChatEl = container.querySelector('#fuel-chat-messages');
+    const savedChatHtml = existingChatEl ? existingChatEl.innerHTML : '';
+
     const summary = store.getDailyNutritionSummary(this.selectedDate);
     const weekDots = store.getWeekDots(this.selectedDate);
     const meals = store.getMealsByDay(this.selectedDate);
@@ -88,8 +92,8 @@ export class FuelScreen {
           </div>
         </div>
 
-        <!-- Chat Conversation Messages (when active) -->
-        <div class="fuel-chat-messages-container" id="fuel-chat-messages"></div>
+        <!-- Chat Conversation Messages (preserved across renders) -->
+        <div class="fuel-chat-messages-container" id="fuel-chat-messages">${savedChatHtml}</div>
 
         <!-- Meal Timeline by Category -->
         <div class="fuel-timeline-wrapper">

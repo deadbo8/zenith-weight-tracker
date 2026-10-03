@@ -124,7 +124,7 @@ export class ModalManager {
 
   checkUnlockScroll() {
     setTimeout(() => {
-      const openModals = document.querySelectorAll('.modal-backdrop.open');
+      const openModals = document.querySelectorAll('.modal-backdrop.open, #zenith-you-page.is-visible, .speed-dial-scrim.is-visible');
       if (openModals.length === 0) {
         document.body.classList.remove('modal-open');
       }
@@ -150,8 +150,8 @@ export class ModalManager {
       return true;
     }
 
-    // Check unsaved changes if not forced
-    if (!force && modalInfo.isDirty && modalInfo.isDirty()) {
+    // Check unsaved changes if not forced and not an explicit cancel click
+    if (!force && reason !== 'cancel' && modalInfo.isDirty && modalInfo.isDirty()) {
       triggerHaptic('warning');
       this.showSnackbar('Discard changes?', 'Discard', () => {
         this.close(modalInfo.id, { reason, force: true, popHistory });
@@ -185,6 +185,7 @@ export class ModalManager {
     if (existing) {
       existing.remove();
       this.openModals.delete(id);
+      this.checkUnlockScroll();
     }
   }
 

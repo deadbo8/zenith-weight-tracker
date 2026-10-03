@@ -519,7 +519,7 @@ function bindYouPageEvents(container) {
     if (confirm('Load 60-day realistic sample data?')) {
       triggerHaptic('success');
       store.loadSampleData();
-      container.remove();
+      closeYouScreen();
     }
   });
 
@@ -528,7 +528,7 @@ function bindYouPageEvents(container) {
     if (input === 'RESET') {
       triggerHaptic('warning');
       store.clearAllData();
-      container.remove();
+      closeYouScreen();
     }
   });
 

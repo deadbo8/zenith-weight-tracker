@@ -4,16 +4,15 @@
  */
 
 export const MODEL_TIERS = {
-  fast:     { vision: 'gemini-3.5-flash-lite', text: 'gemini-3.5-flash-lite' },
-  balanced: { vision: 'gemini-3.5-flash',      text: 'gemini-3.5-flash-lite' }, // default
-  best:     { vision: 'gemini-3.8-flash',      text: 'gemini-3.5-flash' }
+  fast:     { vision: 'gemini-1.5-flash', text: 'gemini-1.5-flash' },
+  balanced: { vision: 'gemini-1.5-flash', text: 'gemini-1.5-flash' }, // default
+  best:     { vision: 'gemini-2.0-flash', text: 'gemini-2.0-flash' }
 };
 
 export const FALLBACK_ORDER = [
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite'
+  'gemini-1.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-pro'
 ];
 
 export function getModelForTask(tier = 'balanced', taskType = 'vision', overrides = {}) {

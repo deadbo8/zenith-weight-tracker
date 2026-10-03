@@ -9,8 +9,9 @@ import { SYSTEM_NUTRITION, buildUserContext, buildCorrectionPrompt, PROMPT_VERSI
 import { RESPONSE_SCHEMA } from '../ai/schema.js';
 import { parseRawAiResponse, validateAiResponse } from '../ai/validate.js';
 import { getCachedAiResult, setCachedAiResult } from '../ai/cache.js';
-import { aiQueue } from '../ai/queue.js';
-import { getKey } from '../ai/secureKey.js';
+import { getKey, setKey } from '../ai/secureKey.js';
+import { estimateOfflineMeal } from '../ai/fallbackEstimator.js';
+import { getModelForTask } from '../ai/models.js';
 import { captureProgressPhoto } from '../camera.js';
 import { createMealConfirmCard, bindMealConfirmCard } from './mealConfirmCard.js';
 import { openAddFoodSheet } from './addFoodSheet.js';
@@ -205,18 +206,13 @@ export class ChatLayer {
       sendBtn.classList.remove('is-active');
     }
 
-    // Add user message to state
-    this.store.addChatMessage({
-      role: 'user',
-      text: text || (photo ? 'Photo of meal' : ''),
-      imagePath: photo?.photoUri,
-      thumbPath: photo?.thumbUri
-    });
+    // Immediately render user message bubble
+    this.addUserMessage(text, photo);
 
     // Verify API Key
     const apiKey = await getKey();
     if (!apiKey) {
-      this.showApiKeyModal();
+      this.showApiKeyModal({ text, photo });
       return;
     }
 
@@ -261,12 +257,13 @@ export class ChatLayer {
       const contents = [{ role: 'user', parts }];
 
       // Check Cache
-      const cacheKey = { input: text || photo?.photoUri, note: text, model: 'gemini-3.5-flash', promptVersion: PROMPT_VERSION };
+      const modelToUse = getModelForTask('balanced', photo ? 'vision' : 'text');
+      const cacheKey = { input: text || photo?.photoUri, note: text, model: modelToUse, promptVersion: PROMPT_VERSION };
       let validated = await getCachedAiResult(cacheKey);
 
       if (!validated) {
         const rawRes = await generate({
-          model: 'gemini-3.5-flash',
+          model: modelToUse,
           system: SYSTEM_NUTRITION,
           contents,
           schema: RESPONSE_SCHEMA
@@ -287,16 +284,23 @@ export class ChatLayer {
       console.warn('AI Generation Error:', err);
 
       if (err.kind === 'no_key' || err.kind === 'bad_key') {
-        this.showApiKeyModal();
+        this.showApiKeyModal({ text, photo });
       } else if (!navigator.onLine || err.kind === 'network') {
-        // Queue draft for retry
-        aiQueue.enqueue({
-          contents: [{ role: 'user', parts: [{ text }] }],
-          metadata: { note: text }
-        });
-        this.addAssistantMessage('Saved. I will analyze your meal when you are back online.');
+        if (text) {
+          this.addAssistantMessage('Offline: estimating meal nutrition locally:');
+          const fallback = estimateOfflineMeal(text);
+          this.handleAiResult(fallback, photo);
+        } else {
+          this.addAssistantMessage('Network offline. Reconnect to analyze meal photos.');
+        }
       } else {
-        this.addAssistantMessage('I could not analyze that just now. You can retry or add the meal manually.');
+        if (text) {
+          this.addAssistantMessage('AI temporary error. Using local nutrition estimation:');
+          const fallback = estimateOfflineMeal(text);
+          this.handleAiResult(fallback, photo);
+        } else {
+          this.addAssistantMessage('I could not analyze that just now. You can retry or add the meal manually.');
+        }
       }
     } finally {
       this.isAnalyzing = false;
@@ -443,6 +447,27 @@ export class ChatLayer {
     document.querySelector('#chat-shimmer-bubble')?.remove();
   }
 
+  addUserMessage(text, photo = null) {
+    const container = document.querySelector('#fuel-chat-messages');
+    if (!container) return;
+
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble user';
+
+    let photoHtml = '';
+    const imgUri = photo?.thumbUri || photo?.photoUri;
+    if (imgUri) {
+      photoHtml = `<img src="${imgUri}" class="user-bubble-photo" alt="Meal photo" />`;
+    }
+
+    bubble.innerHTML = `
+      ${photoHtml}
+      ${text ? `<span>${text}</span>` : ''}
+    `;
+    container.appendChild(bubble);
+    bubble.scrollIntoView({ behavior: 'smooth' });
+  }
+
   addAssistantMessage(text) {
     const container = document.querySelector('#fuel-chat-messages');
     if (!container) return;
@@ -454,8 +479,93 @@ export class ChatLayer {
     bubble.scrollIntoView({ behavior: 'smooth' });
   }
 
-  showApiKeyModal() {
-    this.addAssistantMessage('Connect your Gemini API key in You › AI Assistant to log from photos or text.');
+  showApiKeyModal(pending = null) {
+    const container = document.querySelector('#fuel-chat-messages');
+    if (!container) return;
+
+    const existing = container.querySelector('#gemini-key-prompt-card');
+    if (existing) {
+      existing.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'chat-card-attachment';
+    card.id = 'gemini-key-prompt-card';
+    card.innerHTML = `
+      <div class="api-key-setup-card">
+        <div class="key-card-header">
+          <div class="key-card-badge">🔑 Gemini AI Intelligence</div>
+          <button class="key-card-close" id="btn-close-key-card" aria-label="Dismiss">✕</button>
+        </div>
+        <div class="key-card-body">
+          <p class="key-card-desc">
+            To analyze photos & natural language with Gemini 1.5/2.0 Flash, add your free Google AI Studio key:
+          </p>
+          <div class="key-card-input-row">
+            <input
+              type="password"
+              id="inline-gemini-key-input"
+              class="key-card-input"
+              placeholder="Paste AI Studio Key (AIza...)"
+              autocomplete="off"
+            />
+            <button class="key-card-save-btn" id="btn-save-inline-key">Connect</button>
+          </div>
+          <div class="key-card-actions-row">
+            <a href="https://aistudio.google.com/apikey" target="_blank" class="key-card-link">
+              Get Free Key at aistudio.google.com ↗
+            </a>
+            ${pending?.text ? `
+              <button class="key-card-offline-btn" id="btn-estimate-offline">
+                ⚡ Estimate Offline
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(card);
+    card.scrollIntoView({ behavior: 'smooth' });
+
+    card.querySelector('#btn-close-key-card')?.addEventListener('click', () => {
+      card.remove();
+    });
+
+    card.querySelector('#btn-estimate-offline')?.addEventListener('click', () => {
+      triggerHaptic('light');
+      card.remove();
+      if (pending?.text) {
+        const offlineResult = estimateOfflineMeal(pending.text);
+        this.handleAiResult(offlineResult, pending.photo);
+      }
+    });
+
+    const keyInput = card.querySelector('#inline-gemini-key-input');
+    const saveBtn = card.querySelector('#btn-save-inline-key');
+
+    saveBtn?.addEventListener('click', async () => {
+      const keyVal = keyInput?.value?.trim();
+      if (!keyVal) return;
+
+      saveBtn.textContent = 'Saving…';
+      saveBtn.disabled = true;
+
+      try {
+        await setKey(keyVal);
+        triggerHaptic('success');
+        this.showToast('Gemini API key encrypted & saved');
+        card.remove();
+        if (pending && (pending.text || pending.photo)) {
+          await this.processAiRequest(pending);
+        }
+      } catch (err) {
+        saveBtn.textContent = 'Error';
+        saveBtn.disabled = false;
+        console.error('Failed to save key:', err);
+      }
+    });
   }
 
   showToast(message, onUndo = null) {

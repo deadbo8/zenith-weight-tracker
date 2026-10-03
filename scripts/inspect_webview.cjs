@@ -43,8 +43,9 @@ async function evalInApp(expression) {
       id: 1,
       method: 'Runtime.evaluate',
       params: {
-        expression: `(function(){ ${expression} })()`,
-        returnByValue: true
+        expression: `(async function(){ ${expression} })()`,
+        returnByValue: true,
+        awaitPromise: true
       }
     }));
   });
@@ -67,13 +68,21 @@ async function main() {
     };`;
   } else if (cmd === 'tab') {
     code = `
-      const targetTab = "${arg}";
-      const btn = document.querySelector('.mobile-nav-item[data-tab="' + targetTab + '"]');
-      if (btn) {
-        btn.click();
-        return { success: true, targetTab, activeTab: document.querySelector('.mobile-nav-item.active')?.innerText?.trim() };
-      }
-      return { success: false, error: 'Tab not found: ' + targetTab };
+      return (async () => {
+        const targetTab = "${arg}";
+        const btn = document.querySelector('.mobile-nav-item[data-tab="' + targetTab + '"]');
+        if (btn) {
+          btn.click();
+          await new Promise(r => setTimeout(r, 250));
+          return {
+            success: true,
+            targetTab,
+            activeTab: document.querySelector('.mobile-nav-item.active')?.getAttribute('data-tab'),
+            activeScreen: document.querySelector('.android-screen.active')?.getAttribute('data-screen')
+          };
+        }
+        return { success: false, error: 'Tab not found: ' + targetTab };
+      })()
     `;
   } else if (cmd === 'click') {
     code = `

@@ -297,6 +297,9 @@ export function switchScreen(screenName) {
       }
     });
 
+    // Toggle fuel-active class on body to hide center FAB on fuel tab
+    document.body.classList.toggle('fuel-active', screenName === 'fuel');
+
     // Scroll smoothly to top
     window.scrollTo({ top: 0, behavior: 'instant' });
 
@@ -311,10 +314,17 @@ export function switchScreen(screenName) {
   // Trigger tactile haptic
   triggerHaptic('selection');
 
-  // Fluid View Transitions with slide + fade
-  if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    document.startViewTransition(updateDOM);
-  } else {
+  // Fluid View Transitions with slide + fade and safe fallback
+  try {
+    if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const transition = document.startViewTransition(updateDOM);
+      if (transition?.catch) {
+        transition.catch(() => updateDOM());
+      }
+    } else {
+      updateDOM();
+    }
+  } catch (e) {
     updateDOM();
   }
 }
@@ -588,13 +598,23 @@ initAndroidBridge({
   closeActiveModal: (modal) => {
     if (modal.id === 'zenith-speed-dial-scrim') {
       modal.remove();
+      document.body.classList.remove('modal-open');
       return;
     }
     if (modal.id === 'zenith-you-page') {
       closeYouScreen();
       return;
     }
-    modal.querySelector('.close-modal, #btn-cancel-log, #btn-cancel-add-food')?.click() || modal.remove();
+    const closeBtn = modal.querySelector('.close-modal, #btn-cancel-log, #btn-cancel-add-food, #btn-done-calc, #btn-done-badges');
+    if (closeBtn) {
+      closeBtn.click();
+    } else {
+      modal.remove();
+    }
+    setTimeout(() => {
+      const remaining = document.querySelector('.modal-backdrop.open, #zenith-you-page.is-visible, .speed-dial-scrim.is-visible');
+      if (!remaining) document.body.classList.remove('modal-open');
+    }, 220);
   },
   getActiveTab: () => currentActiveScreen,
   switchTab: (tab) => {

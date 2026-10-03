@@ -143,3 +143,37 @@ describe('AI Layer - Cache & Models', () => {
     expect(err.status).toBe(429);
   });
 });
+
+import { estimateOfflineMeal } from '../src/ai/fallbackEstimator.js';
+
+describe('AI Layer - Offline Fallback Estimator', () => {
+  it('parses food items and calculates calories and macros offline', () => {
+    const res = estimateOfflineMeal('2 eggs and toast');
+    expect(res.intent).toBe('log_meal');
+    expect(res.meal.items.length).toBe(2);
+    expect(res.meal.totals.kcal).toBeGreaterThan(200);
+    expect(res.meal.totals.proteinG).toBeGreaterThan(10);
+    expect(res.followUpChips).toBeDefined();
+  });
+
+  it('detects offline water command', () => {
+    const res = estimateOfflineMeal('500ml water');
+    expect(res.intent).toBe('log_water');
+    expect(res.waterMl).toBe(500);
+  });
+
+  it('detects offline weigh-in command', () => {
+    const res = estimateOfflineMeal('weigh 73.5 kg');
+    expect(res.intent).toBe('log_weight');
+    expect(res.weight.value).toBe(73.5);
+    expect(res.weight.unit).toBe('kg');
+  });
+
+  it('provides safe fallback for unknown food', () => {
+    const res = estimateOfflineMeal('grandma special casserole');
+    expect(res.intent).toBe('log_meal');
+    expect(res.meal.totals.kcal).toBe(420);
+    expect(res.meal.confidence).toBe('medium');
+  });
+});
+

@@ -30,16 +30,19 @@ export function createMealConfirmCard(mealDraft, profileAllergies = []) {
 
   // Items rows
   const itemRows = items.map((it, idx) => {
+    const qty = it.quantity != null ? it.quantity : 1;
+    const unitStr = it.unit || 'portion';
+    const gramsStr = it.gramsEstimate || it.grams ? ` (${it.gramsEstimate || it.grams}g)` : '';
     return `
       <div class="confirm-item-row" data-item-idx="${idx}">
         <div class="confirm-item-info">
           <div class="confirm-item-name">${it.name}</div>
-          <div class="confirm-item-meta">${it.quantity} ${it.unit}${it.gramsEstimate ? ` (${it.gramsEstimate}g)` : ''}</div>
+          <div class="confirm-item-meta">${qty} ${unitStr}${gramsStr}</div>
         </div>
         <div class="confirm-item-controls">
           <div class="confirm-stepper">
             <button class="btn-stepper-sub" data-sub-idx="${idx}" aria-label="Decrease portion">−</button>
-            <span class="stepper-val">${it.quantity}</span>
+            <span class="stepper-val">${qty}</span>
             <button class="btn-stepper-add" data-add-idx="${idx}" aria-label="Increase portion">+</button>
           </div>
           <div class="confirm-item-kcal">${fmtInt(it.kcal)}</div>

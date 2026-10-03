@@ -158,14 +158,6 @@ body {
 
 body.modal-open {
   overflow: hidden !important;
-  height: 100vh !important;
-  height: 100dvh !important;
-  touch-action: none !important;
-}
-
-body.modal-open #app {
-  pointer-events: none !important;
-  user-select: none !important;
 }
 
 .hidden {
@@ -2263,7 +2255,7 @@ body.modal-open { overflow: hidden !important; }
 .android-screen.active {
   display: block;
   opacity: 1;
-  transform: translateY(0);
+  transform: none !important;
 }
 
 .screen-container {
@@ -5160,18 +5152,24 @@ body.modal-open .main-wrapper {
   background: rgba(48, 209, 88, 0.08);
 }
 
+/* When fuel screen is active, hide center FAB so chat dock is 100% unobstructed */
+[data-screen="fuel"].active ~ .mobile-bottom-nav .mobile-nav-center-btn,
+body.fuel-active .mobile-nav-center-btn {
+  display: none !important;
+}
+
 /* Fuel Floating Sticky Chat Dock (Section 8.1 & 8.3) */
 .fuel-chat-dock {
   position: fixed;
-  bottom: 64px;
+  bottom: calc(56px + max(env(safe-area-inset-bottom, 0px), 6px));
   left: 0;
   right: 0;
-  background: rgba(18, 18, 20, 0.88);
+  background: rgba(18, 18, 20, 0.94);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   border-top: 1px solid var(--border-subtle);
   padding: 8px 12px;
-  z-index: 45;
+  z-index: 55;
   max-width: 600px;
   margin: 0 auto;
 }
@@ -5331,6 +5329,131 @@ body.modal-open .main-wrapper {
   background: transparent;
   color: var(--text-secondary);
   padding-left: 0;
+}
+
+.chat-bubble.user {
+  align-self: flex-end;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  border-radius: var(--radius-lg);
+  border-bottom-right-radius: 4px;
+  padding: 8px 14px;
+  max-width: 82%;
+  word-break: break-word;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.chat-bubble.user .user-bubble-photo {
+  max-width: 100%;
+  max-height: 180px;
+  border-radius: var(--radius-md);
+  margin-bottom: 6px;
+  display: block;
+  object-fit: cover;
+}
+
+/* Inline Gemini API Key Setup Card in Fuel Chat */
+.api-key-setup-card {
+  background: var(--bg-surface-elevated);
+  border: 1px solid rgba(48, 209, 88, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.key-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.key-card-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.key-card-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.key-card-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+.key-card-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.key-card-input {
+  flex: 1;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.key-card-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.key-card-save-btn {
+  background: var(--accent-primary);
+  color: #000;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.key-card-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.key-card-link {
+  font-size: 0.74rem;
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.key-card-link:hover {
+  text-decoration: underline;
+}
+
+.key-card-offline-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+  font-size: 0.74rem;
+  font-weight: 500;
+  padding: 4px 12px;
+  cursor: pointer;
 }
 
 .chat-bubble.is-shimmer {
